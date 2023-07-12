@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>D3 Example</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+  </head>
+  <body>
+    <input type="range" min="0" max="1" step="0.01" value="1" id="timeSlider">
+    <p>Selected Date: <span id="selectedDate"></span></p>
+    <script>
+                const data = {
+    "南京地铁": [
+        {
+            "Line": "2号线",
+            "Earliest_Operation_Date": "2010-05-28"
+        },
+        {
+            "Line": "3号线",
+            "Earliest_Operation_Date": "2015-04-01"
+        },
+        {
+            "Line": "4号线",
+            "Earliest_Operation_Date": "2017-01-18"
+        },
+        {
+            "Line": "7号线",
+            "Earliest_Operation_Date": "2022-12-28"
+        },
+        {
+            "Line": "10号线",
+            "Earliest_Operation_Date": "2014-07-01"
+        },
+        {
+            "Line": "S1号线",
+            "Earliest_Operation_Date": "2014-07-01"
+        },
+        {
+            "Line": "S3号线",
+            "Earliest_Operation_Date": "2017-12-06"
+        },
+        {
+            "Line": "S4号线",
+            "Earliest_Operation_Date": "2023-06-28"
+        },
+        {
+            "Line": "S6号线",
+            "Earliest_Operation_Date": "2021-12-28"
+        },
+        {
+            "Line": "S7号线",
+            "Earliest_Operation_Date": "2018-05-26"
+        },
+        {
+            "Line": "S8号线",
+            "Earliest_Operation_Date": "2014-08-01"
+        },
+
+    ],
+    "长春轨道交通": [
+    {
+            "Line": "长春轨道交通1号线",
+            "Earliest_Operation_Date": "2017-06-30"
+        },
+        {
+            "Line": "长春轨道交通2号线",
+            "Earliest_Operation_Date": "2018-08-30"
+        },
+        {
+            "Line": "长春轨道交通3号线",
+            "Earliest_Operation_Date": "2002-10-30"
+        },
+        {
+            "Line": "长春轨道交通4号线",
+            "Earliest_Operation_Date": "2011-06-30"
+        },
+        {
+            "Line": "长春轨道交通8号线",
+            "Earliest_Operation_Date": "2018-10-30"
+        }
+    ]
+};
+      // set up the SVG element
+      const svg = d3.select("body").append("svg")
+          .attr("width", 500)
+          .attr("height", 500);
+
+      // create a scale for the x and y positions of the elements
+      const xScale = d3.scaleLinear()
+          .domain([0, 10])
+          .range([0, 500]);
+      const yScale = d3.scaleLinear()
+          .domain([0, 10])
+          .range([0, 500]);
+
+      // create a line generator function
+      const line = d3.line()
+          .x(d => xScale(d.x))
+          .y(d => yScale(d.y));
+
+      // add the country as a large square
+      svg.append("rect")
+          .attr("x", xScale(1))
+          .attr("y", yScale(1))
+          .attr("width", xScale(8))
+          .attr("height", yScale(8))
+          .style("fill", "none")
+          .style("stroke", "black");
+
+      // add the cities as small squares and create clipping paths for each city
+      const cities = ["南京地铁", "长春轨道交通",'a','b'];
+      cities.forEach((city, i) => {
+          // add clipping path
+          svg.append("clipPath")
+              .attr("id", `clip-${i}`)
+              .append("rect")
+              .attr("x", xScale(1 + (i % 3) * 2.7))
+              .attr("y", yScale(1 + Math.floor(i / 3) * 2.7))
+              .attr("width", xScale(2.6))
+              .attr("height", yScale(2.6));
+
+          // add city square
+          svg.append("rect")
+              .attr("x", xScale(1 + (i % 3) * 2.7))
+              .attr("y", yScale(1 + Math.floor(i / 3) * 2.7))
+              .attr("width", xScale(2.6))
+              .attr("height", yScale(2.6))
+              .style("fill", "none")
+              .style("stroke", "black");
+      });
+
+      // generate random positions for the lines
+      const linePositions = {};
+      Object.keys(data).forEach(city => {
+        linePositions[city] = data[city].map(lineData => {
+            const angle = Math.random() * 2 * Math.PI;
+            const length = 1.84;
+            const i = cities.indexOf(city);
+            const x = 2.3 + (i % 3) * 2.7 + (Math.random() - 0.5) * 2.6;
+            const y = 2.3 + Math.floor(i / 3) * 2.7 + (Math.random() - 0.5) * 2.6;
+            return [
+                {x: x + Math.cos(angle) * length, y: y + Math.sin(angle) * length},
+                {x: x - Math.cos(angle) * length, y: y - Math.sin(angle) * length}
+            ];
+        });
+      });
+
+      // set up the time slider
+      const timeSlider = d3.select("#timeSlider");
+      const selectedDateText = d3.select("#selectedDate");
+      timeSlider.on("input", function() {
+        // calculate the selected date based on the slider value
+        const startDate = new Date("2000-01-01");
+        const endDate = new Date();
+        const timeRange = endDate.getTime() - startDate.getTime();
+        const selectedTime = startDate.getTime() + timeRange * this.value;
+        const selectedDate = new Date(selectedTime);
+
+        // update the selected date text
+        selectedDateText.text(selectedDate.toISOString().slice(0, 10));
+
+        // filter the data based on the selected date
+        const filteredData = {};
+        Object.keys(data).forEach(city => {
+            filteredData[city] = data[city].filter(lineData => {
+                return new Date(lineData.Earliest_Operation_Date) <= selectedDate;
+            });
+        });
+
+        // update the visualization based on the filtered data
+        svg.selectAll(".city-group").remove();
+        cities.forEach((city, i) => {
+            const cityGroup = svg.append("g")
+                .classed("city-group", true)
+                .attr("clip-path", `url(#clip-${i})`);
+
+            filteredData[city].forEach((lineData, j) => {
+                cityGroup.append("path")
+                    .datum(linePositions[city][j])
+                    .attr("d", line)
+                    .style("fill", "none")
+                    .style("stroke", "black");
+            });
+        });
+      });
+      timeSlider.dispatch("input");
+    </script>
+  </body>
+</html>
